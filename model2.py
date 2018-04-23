@@ -80,6 +80,7 @@ class DeepCF:
         self.loss = None
         self.model = None
         self.pred_model = None
+        self.target_model = None
 
         self.U_embedding = None
         self.V_embedding = None
