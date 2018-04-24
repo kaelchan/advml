@@ -7,9 +7,9 @@ def evaluate_cold(x, recall_at):
     _, eval_preds_cold = tf.nn.top_k(embedding_prod_cold, k=recall_at[-1], sorted=True, name='topK_net_cold')
     return eval_preds_cold
 
-def evaluate_warm(x, recall_at, eval_trainR):
+def evaluate_warm(x, recall_at):
     embedding_prod_cold = tf.matual(x[0], x[1], transpose_b = True)
-    embedding_prod_warm = tf.sparse_add(embedding_prod_cold, eval_trainR)
+    embedding_prod_warm = tf.sparse_add(embedding_prod_cold, x[2])
     _, eval_preds_warm = tf.nn.top_k(embedding_prod_warm, k=recall_at[-1], sorted=True, name='topK_net_warm')
     return eval_preds_warm
 
@@ -27,6 +27,15 @@ def topk_inds(x, num_candidates):
 def random_target(x, num_candidates):
     preds_random = tf.gather_nd(x[0], x[1])
     return tf.reshape(preds_random, [-1], name='random_y_inds')
+
+def latent_topk_cold(x, recall_at):
+    _, tf_latent_topk_cold = tf.nn.top_k(x, k=recall_at[-1], sorted=True, name='topK_latent_cold')
+    return tf_latent_topk_cold
+
+def latent_topk_warm(x, recall_at):
+    preds_pref_latent_warm = tf.sparse_add(x[0], x[1])
+    _, tf_latent_topk_warm = tf.nn.top_k(preds_pref_latent_warm, k=recall_at[-1], sorted=True, name='topK_latent_warm')
+    return tf_latent_topk_warm
 
 def dense_batch_fc_tanh(x, units, phase, scope, do_norm=False):
     w_init = tf.truncated_normal_initializer(stddev=0.01)
@@ -80,7 +89,7 @@ class DeepCF:
         self.loss = None
         self.model = None
         self.pred_model = None
-        self.target_model = None
+        self.latent_eval_model = None
 
         self.U_embedding = None
         self.V_embedding = None
@@ -121,11 +130,12 @@ class DeepCF:
         model.compile(optimizer='rmsprop', loss='mean_squared_error')
         self.model = model
 
-    def build_predictor(self, recall_at, num_candidates, eval_trainR):
+    def build_predictor(self, recall_at, num_candidates):
         # evaluation model
+        self.eval_trainR = Input(shape=(None, ), dtype='float32', name='trainR_sparse_CPU', sparse=True) #Not sure whether a shape could have element None. If not, the shape may need an argument.
         self.eval_preds_cold = Lambda(evaluate_cold, arguments=[recall_at])([self.U_embedding, self.V_embedding])
-        self.eval_preds_warm = Lambda(evaluate_warm, arguments=[recall_at, eval_trainR])([self.U_embedding, self.V_embedding])
-        model = Model(inputs=[self.U_embedding, self.V_embedding], outputs=[self.eval_preds_cold, self.eval_preds_cold])
+        self.eval_preds_warm = Lambda(evaluate_warm, arguments=[recall_at])([self.U_embedding, self.V_embedding, self.eval_trainR])
+        model = Model(inputs=[self.U_embedding, self.V_embedding, self.eval_trainR], outputs=[self.eval_preds_cold, self.eval_preds_cold])
         self.pred_model = model
         # target model
         self.U_pref_tf = Input(shape=(self.rank_in, ), dtype='float32', name='u_pref')
@@ -137,4 +147,8 @@ class DeepCF:
         self.preds_random = Lambda(random_target)([preds_pref, self.rand_target_ui])
         model = Model(inputs=[self.U_pref_tf, self.V_pref_tf, self.rand_target_ui], outputs=[self.tf_topk_vals, self.tf_topk_inds, self.preds_random])
         self.target_model = model
-
+        # latent evaluation
+        self.tf_latent_topk_cold = Lambda(latent_topk_cold, arguments=[recall_at])(preds_pref)
+        self.tf_latent_topk_warm = Lambda(latent_topk_warm, arguments=[recall_at])([preds_pref, self.eval_trainR])
+        model = Model(inputs=[preds_pref, self.eval_trainR], outputs=[self.tf_latent_topk_cold, self.tf_latent_topk_warm])
+        self.latent_eval_model = model
