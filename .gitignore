@@ -1,0 +1,4 @@
+data/*
+.vscode/*
+input/*
+src/.ipynb_checkpoints/*
