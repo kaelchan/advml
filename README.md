@@ -36,6 +36,12 @@
     - output: use $p = 1$ or $0$ instead of modified rating $r$
 4. v3 + modification:
     - loss: add multiplier as $1 + \alpha r$
+5. user preference history (the row in the preference matrix) -> Embedding layers (in this way, we don't have to retrain the model every time the preference table changes)
+    - cannot directly use the rows or columns as input of dense: how to deal with null?
+    - maybe consider $\frac{1}{\text{number of interactions}}\sum_i{v^{tag}_i}$?
+        - maybe train two models: for 0 and for 1
+        - may use tfidf to normalize
+        
 
 ## todo list
 
@@ -98,8 +104,12 @@
         - input
             - read in context
             - read in MF latent vector
-    - DropoutNet flow: predicting
-        - map
+    - evaluate: recall at k
+        - prepare the all the items for user, called target list
+        - get the ranking of all items, removing the ones from training
+        - label: target list minus the ones from training
+        - recall at k
+            - notice there may be users with no positive feedback (not sure)
 
 
 ### Clean and split the data
