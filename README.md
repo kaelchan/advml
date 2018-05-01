@@ -129,3 +129,9 @@
         - the item has $\ge t_i=10$ interactions in total
         - around 520K
     - train: all the remaining
+    
+## Experiment List
+
+- exp1: normal
+- exp2: try to be fast, but with bug
+- exp3: RMSprop(1e-2)
