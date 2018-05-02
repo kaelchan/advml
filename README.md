@@ -135,3 +135,6 @@
 - exp1: normal
 - exp2: try to be fast, but with bug
 - exp3: RMSprop(1e-2)
+    - the loss (0.10+) seems to be larger than 1e-3 (loss=0.06+)
+    - so i decide to use 1e-5 to see the result
+- exp4: choose (100,80) for hidden layers and 64 for latent dimension
